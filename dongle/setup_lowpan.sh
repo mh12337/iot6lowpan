@@ -19,6 +19,7 @@ sysctl -w net.ipv6.conf.lowpan0.accept_ra=1
 
 ip -6 addr add fd00::4/64 dev lowpan0
 # generic manual version
+# sudo ./setup_lowpan.sh
 # #!/bin/bash
 
 # ID=$1
