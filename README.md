@@ -42,10 +42,9 @@ RemainAfterExit=true
 [Install]
 WantedBy=multi-user.target
 ```
-
-```bash
 Save file <br>
 Run:
+```bash
 sudo systemctl daemon-reexec
 sudo systemctl daemon-reload
 sudo systemctl enable lowpan.service
