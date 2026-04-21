@@ -1,3 +1,4 @@
+# specific for rpi node 04 used for boot
 #!/bin/bash
 
 ip link set wpan0 up
@@ -17,6 +18,7 @@ sysctl -w net.ipv6.conf.lowpan0.forwarding=1
 sysctl -w net.ipv6.conf.lowpan0.accept_ra=1
 
 ip -6 addr add fd00::4/64 dev lowpan0
+# generic manual version
 # #!/bin/bash
 
 # ID=$1
