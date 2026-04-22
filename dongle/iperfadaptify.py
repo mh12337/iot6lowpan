@@ -1,4 +1,5 @@
 import json
+import datetime
 import matplotlib.pyplot as plt
 import openpyxl
 from openpyxl import Workbook
@@ -56,8 +57,10 @@ def get_time_series_data(data):
         bitrates.append(b)
 
     return times, bitrates
-def save_to_excel(metrics, times, bitrates):
-    stamp = metrics["stamp"]
+def save_to_excel(metrics, times, bitrates, stamp=None):
+    if stamp is None:
+        stamp = datetime.datetime.fromtimestamp(stamp).strftime("%d%m%Y-%H%M%S")
+       
     filename = f"results-{stamp}.xlsx"
 
     wb = Workbook()
@@ -80,7 +83,7 @@ def save_to_excel(metrics, times, bitrates):
     wb.save(filename)
     print(f"Saved to {filename}")
 
-def do_plots(times, bitrates, jitters, lost_percents):
+def do_plots(times, bitrates, jitters, lost_percents, stamp=None):
     plt.figure(figsize=(12, 8))
 
     plt.subplot(3, 1, 1)
@@ -105,14 +108,17 @@ def do_plots(times, bitrates, jitters, lost_percents):
     # plt.grid()
 
     plt.tight_layout()
+    plt.savefig(f"plot-{stamp}.png")
     plt.show()
 
 if __name__ == "__main__":
     data = get_data("results.json")
     metrics = extract_iperf_metrics(data)
+    stamp = metrics["stamp"]
+    stamp = datetime.datetime.fromtimestamp(stamp).strftime("%d%m%Y-%H%M%S")
     times, bitrates = get_time_series_data(data)
-    save_to_excel(metrics, times, bitrates)
-    do_plots(times, bitrates, [], [])
+    save_to_excel(metrics, times, bitrates, stamp)
+    do_plots(times, bitrates, [], [], stamp)
     print("=== Iperf Results ===")
     for k, v in metrics.items():
         print(f"{k}: {v}")
