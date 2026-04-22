@@ -30,8 +30,9 @@ def extract_iperf_metrics(data):
         "bits_per_second": summary["bits_per_second"],
         "bitrate_kbps": summary["bits_per_second"] / 1000,
         "jitter_ms": summary["jitter_ms"],
-        "packet_loss_percent": summary["lost_percent"],
         "total_packets": summary["packets"],
+        "lost_packets": summary["lost_packets"],
+        "lost_percent": summary["lost_percent"],
         #cpu util
         "cpu_host_total": cpuutil["host_total"],
         "cpu_host_user": cpuutil["host_user"],
