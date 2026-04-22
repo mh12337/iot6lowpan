@@ -1,3 +1,4 @@
 pyserial
 openpyxl
 matplotlib
+pandas
