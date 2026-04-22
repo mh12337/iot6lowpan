@@ -1,6 +1,7 @@
 import json
 import matplotlib.pyplot as plt
-
+import openpyxl
+from openpyxl import Workbook
 def get_data(file_path):
     with open(file_path, 'r') as f:
         data = json.load(f)
@@ -9,11 +10,13 @@ def extract_iperf_metrics(data):
     
     deviceinfo = data["start"]["system_info"]
     connection = data["start"]["connected"][0]
+    timestamp = data["start"]["timestamp"]["timesecs"]
     testinfo = data["start"]["test_start"]
     summary = data["end"]["sum"]
     cpuutil = data["end"]["cpu_utilization_percent"]
     result = {
         "device_info": deviceinfo,
+        "stamp": timestamp,
         "local_host": connection["local_host"],
         "remote_host": connection["remote_host"],
         "protocol": testinfo["protocol"],
@@ -53,6 +56,29 @@ def get_time_series_data(data):
         bitrates.append(b)
 
     return times, bitrates
+def save_to_excel(metrics, times, bitrates):
+    stamp = metrics["stamp"]
+    filename = f"results-{stamp}.xlsx"
+
+    wb = Workbook()
+
+    # Sheet 1: Summary
+    ws1 = wb.active
+    ws1.title = "summary"
+
+    ws1.append(["Metric", "Value"])
+    for k, v in metrics.items():
+        ws1.append([k, v])
+
+    # Sheet 2: Time series
+    ws2 = wb.create_sheet(title="time_series")
+    ws2.append(["time_s", "bitrate_kbps"])
+
+    for t, b in zip(times, bitrates):
+        ws2.append([t, b])
+
+    wb.save(filename)
+    print(f"Saved to {filename}")
 
 def do_plots(times, bitrates, jitters, lost_percents):
     plt.figure(figsize=(12, 8))
@@ -85,6 +111,7 @@ if __name__ == "__main__":
     data = get_data("results.json")
     metrics = extract_iperf_metrics(data)
     times, bitrates = get_time_series_data(data)
+    save_to_excel(metrics, times, bitrates)
     do_plots(times, bitrates, [], [])
     print("=== Iperf Results ===")
     for k, v in metrics.items():
