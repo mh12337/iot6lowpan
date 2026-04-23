@@ -1,5 +1,12 @@
+### wpan-tools
 # node join PAN
 sudo iwpan dev wpan0 associate pan_id 0x04D2 coord <coordinator ext addr>
+# send beacon from coord every 6 s
+sudo iwpan dev wpan0 beacons send interval 6
+# stop beacon 
+sudo iwpan dev wpan0 beacons stop
+# network associations
+iwpan dev wpan0 list_associations
 
 ### iperf
 # start server on port 5123
@@ -7,4 +14,6 @@ iperf3 -s -p 5123
 
 # iperf client sends UDP at 50 kbps for 30 seconds
 iperf3 -c <server-ip> -u -b 50k -t 30
+# with pkg size
+iperf3 -c fd00::2 -p 5123 -u -b 50k -t 30 -l 300
 
