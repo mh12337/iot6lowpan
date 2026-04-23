@@ -16,7 +16,9 @@ iperf3 -s -p 5123
 iperf3 -c <server-ip> -u -b 50k -t 30
 # with pkg size
 iperf3 -c fd00::2 -p 5123 -u -b 50k -t 30 -l 300
-
+# remote
+iperf3 -c ping.online.net -u -b 20k -l 80
+# force ipv6 to remote server
 iperf3 -6 -c ping.online.net -u -b 20k -l 80
 
 #route ipv6 through coord/node2
