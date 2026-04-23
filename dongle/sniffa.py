@@ -1,5 +1,6 @@
 import argparse
 import time
+from datetime import datetime
 from nrf802154_sniffer import Nrf802154Sniffer
 
 def main():
@@ -7,10 +8,11 @@ def main():
     parser.add_argument("dev", help="Serial device - /dev/ttyACM3 or COM3")
     parser.add_argument("channel", type=int, help="802.15.4 channel")
     args = parser.parse_args()
-
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"sniffa_file_{timestamp}.pcap"
     sniffer = Nrf802154Sniffer()
     sniffer.start_threaded(
-        fifo="sniffa_file.pcap",
+        fifo=filename,
         dev=args.dev,
         channel=args.channel
     )
@@ -21,7 +23,6 @@ def main():
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        print("\nStopping sniffer...")
         sniffer.stop_thread()
         print("Stopped.")
 
