@@ -1,3 +1,8 @@
+## set up multi hop
+# (hacker) commands to route through coordinator (8 -> 2 -> 4)
+sudo ip -6 route add fd00::2 dev lowpan0
+sudo ip -6 route add fd00::4 via fd00::2 dev lowpan0
+
 ### wpan-tools
 # node join PAN
 sudo iwpan dev wpan0 associate pan_id 0x04D2 coord <coordinator ext addr>
