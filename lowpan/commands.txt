@@ -2,6 +2,8 @@
 # (hacker) commands to route through coordinator (8 -> 2 -> 4)
 sudo ip -6 route add fd00::2 dev lowpan0
 sudo ip -6 route add fd00::4 via fd00::2 dev lowpan0
+on gateway/router:
+sudo sysctl -w net.ipv6.conf.all.forwarding=1
 
 ### wpan-tools
 # node join PAN
