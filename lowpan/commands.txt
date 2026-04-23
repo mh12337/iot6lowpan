@@ -1,0 +1,10 @@
+# node join PAN
+sudo iwpan dev wpan0 associate pan_id 0x04D2 coord <coordinator ext addr>
+
+### iperf
+# start server on port 5123
+iperf3 -s -p 5123
+
+# iperf client sends UDP at 50 kbps for 30 seconds
+iperf3 -c <server-ip> -u -b 50k -t 30
+
