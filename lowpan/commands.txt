@@ -18,3 +18,9 @@ iperf3 -c <server-ip> -u -b 50k -t 30
 iperf3 -c fd00::2 -p 5123 -u -b 50k -t 30 -l 300
 
 iperf3 -6 -c ping.online.net -u -b 20k -l 80
+
+#route ipv6 through coord/node2
+sudo ip -6 route add default via fd00::2 dev lowpan0
+#sudo ip -6 route replace default via fd00::2 dev lowpan0
+ip -6 route
+ip -6 route get 2001:4860:4860::8888
