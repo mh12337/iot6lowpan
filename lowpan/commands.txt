@@ -17,3 +17,4 @@ iperf3 -c <server-ip> -u -b 50k -t 30
 # with pkg size
 iperf3 -c fd00::2 -p 5123 -u -b 50k -t 30 -l 300
 
+iperf3 -6 -c ping.online.net -u -b 20k -l 80
