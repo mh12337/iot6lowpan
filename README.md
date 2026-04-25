@@ -2,7 +2,7 @@
 Group 1: Morten Husted, João Guedes Soares Vera, Pau Viñas Francisco, László Dávid Csávás	Csávás
 
 ## Hardware setup
-### Device setup
+### RPI setup
 SD is flashed with a rasbian lite 32 bit image, using Raspberry Pi Imager. <br>
 There was a mismatch between the standard device tree for the at86rf233 device and the device driver for at86rf230. The sleep pin was set as active low in the device tree, and the SLP_TR pin is active high [[1]](https://ww1.microchip.com/downloads/en/devicedoc/doc5131.pdf). The driver sets the sleep pin to low during initialization [[2]](https://github.com/torvalds/linux/blob/b4e07588e743c989499ca24d49e752c074924a9a/drivers/net/ieee802154/at86rf230.c#L1550) - this logical low was being interpreted as a physical high on the pin causing a probing error:
 ```
@@ -23,7 +23,8 @@ at86rf233-overlay.dts
 dtparam=spi=on
 dtoverlay=at86rf233-fixed,speed=500000
 ```
-
+### nRF52840 dongle setup
+The nRF52840 dongle is setup with firmware from [nodicsemi](https://github.com/nordicsemi/nRF-Sniffer-for-802.15.4/tree/master) (specifically [nrf802154_sniffer_nrf52840dongle.hex](https://github.com/mh12337/iot6lowpan/blob/main/dongle/nrf802154_sniffer_nrf52840dongle.hex)). We also use the [python wrapper](https://github.com/nordicsemi/nRF-Sniffer-for-802.15.4/blob/master/nrf802154_sniffer/nrf802154_sniffer.py). Our [sniffa.py](https://github.com/mh12337/iot6lowpan/blob/main/dongle/sniffa.py) simply takes the COM port used by the dongle and the radio channel to sniff, as console arguments and specifies the file name where the results should be written to.
 ### 6LowPAN setup
 Use [setup_lowpan_node.sh](https://github.com/mh12337/iot6lowpan/blob/main/lowpan/setup_lowpan_node.sh) on node and [setup_lowpan_coordinator.sh](https://github.com/mh12337/iot6lowpan/blob/main/lowpan/setup_lowpan_coordinator.sh) on coordinator <br> 
 [iwpan-tools v0.10](https://github.com/linux-wpan/wpan-tools/releases) is needed to configure from user space <br>
