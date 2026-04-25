@@ -19,7 +19,7 @@ at86rf233-overlay.dts
 ```
 /boot/firmware/config.txt is then updated to use this overlay, with SPI clock speed = 1MHz
 ### 6LowPAN setup
-Use [setup_lowan.sh](https://github.com/mh12337/iot6lowpan/blob/main/dongle/setup_lowpan.sh)
+Use [setup_lowpan_node.sh](https://github.com/mh12337/iot6lowpan/blob/main/lowpan/setup_lowpan_node.sh) on node and [setup_lowpan_coordinator.sh](https://github.com/mh12337/iot6lowpan/blob/main/lowpan/setup_lowpan_coordinator.sh) on coordinator <br> 
 Make the script executable and enable it to run on boot
 ```bash
 chmod +x setup_lowpan.sh
