@@ -18,6 +18,7 @@ ip link set lowpan0 up
 sysctl -w net.ipv6.conf.lowpan0.forwarding=1
 sysctl -w net.ipv6.conf.lowpan0.accept_ra=1
 
-ip -6 addr add fd00::8/64 dev lowpan0
+#comment in to use extended addr
+#ip -6 addr add fd00::8/64 dev lowpan0
 
 sudo iwpan dev wpan0 associate pan_id 0x04d2 coord 0x0211223344556677
