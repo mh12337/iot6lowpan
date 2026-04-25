@@ -17,7 +17,13 @@ sudo dtc -@ -I dts -O dtb \
   -o /boot/firmware/overlays/at86rf233-fixed.dtbo \
 at86rf233-overlay.dts
 ```
-/boot/firmware/config.txt is then updated to use this overlay, with SPI clock speed = 1MHz
+/boot/firmware/config.txt is then updated to use this overlay, with SPI clock speed = 0.5MHz:
+
+```
+dtparam=spi=on
+dtoverlay=at86rf233-fixed,speed=500000
+```
+
 ### 6LowPAN setup
 Use [setup_lowpan_node.sh](https://github.com/mh12337/iot6lowpan/blob/main/lowpan/setup_lowpan_node.sh) on node and [setup_lowpan_coordinator.sh](https://github.com/mh12337/iot6lowpan/blob/main/lowpan/setup_lowpan_coordinator.sh) on coordinator <br> 
 [iwpan-tools v0.10](https://github.com/linux-wpan/wpan-tools/releases) is needed to configure from user space <br>
