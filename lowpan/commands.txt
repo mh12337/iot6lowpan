@@ -33,3 +33,11 @@ sudo ip -6 route add default via fd00::2 dev lowpan0
 #sudo ip -6 route replace default via fd00::2 dev lowpan0
 ip -6 route
 ip -6 route get 2001:4860:4860::8888
+
+### libcoap
+# coap server with DTLS
+coap-server -A :: -u "identity" -k "pre-shared key"
+#client get
+coap-client -m get coaps://[fe80::d42d:9ff4:3fe7:6d99%lowpan0] -u "identity" -k "pre-shared key"
+#clien get endpoint (secure connection)
+coap-client -m get coaps://[fe80::d42d:9ff4:3fe7:6d99%lowpan0]/.well-known/core
