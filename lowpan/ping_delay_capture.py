@@ -12,9 +12,9 @@ def run_test(target, count):
         "rtt_ms": [float(t) for t in times]
     }
     timestamp = datetime.now().strftime("%H%M%S")
-    with open(f"ping_results_{target}_{timestamp}.json", "w") as f:
+    with open(f"ping_results_{timestamp}.json", "w") as f:
         json.dump(data, f, indent=2)
-    print(f"Saved ping results to ping_results_{target}_{timestamp}.json")
+    print(f"Saved ping results to ping_results_{timestamp}.json")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
