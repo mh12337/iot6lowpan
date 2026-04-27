@@ -12,7 +12,7 @@ async def run_test(target, num_requests, payload_size, dtls = False, key = b'hej
     if dtls:
         key = key.encode()
         identity = identity.encode()
-
+        # https://aiocoap.readthedocs.io/en/latest/module/aiocoap.transports.tinydtls.html
         protocol.client_credentials.load_from_dict({
             target.rstrip('/') + '/*': {
                 'dtls': {
