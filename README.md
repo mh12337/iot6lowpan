@@ -61,7 +61,7 @@ sudo reboot
 ```
 Should now be setup, check with 'ip a'
 
-#NAT64 Interface
+# NAT64 Interface
 To enable communication to IPv4 adresses in the internet, a NAT64 interface had to be created in the border router (coordinator node).
 This can be done with Tayga, this [guide](https://github.com/apalrd/tayga/blob/main/docs/README.md) was used to help setup the interface.
 
