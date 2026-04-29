@@ -60,3 +60,58 @@ sudo systemctl enable lowpan.service
 sudo reboot
 ```
 Should now be setup, check with 'ip a'
+
+#NAT64 Interface
+To enable communication to IPv4 adresses in the internet, a NAT64 interface had to be created in the border router (coordinator node).
+This can be done with Tayga, this [guide](https://github.com/apalrd/tayga/blob/main/docs/README.md) was used to help setup the interface.
+
+## Tayga Installation and Configuration
+The first step is to install tayga, which can be done with:
+```bash
+git clone git@github.com:apalrd/tayga.git
+cd tayga
+make
+```
+Now, to make dynamic mapping persistent to tayga restarts, we need to create a directory, where a dynamic.map file will be stored.
+```bash
+mkdir -p /var/db/tayga
+```
+Dynamic mapping is the way in which IPv6 adresses in our network will be mapped to IPv4 adressess, that devices from outside our network will use to communicate back to devices in our system. This translation is done as necessary, when a device from our network sends a message to an IPv4 destination, tayga will assign it an IPv4 adress taken from a dynamic pool. This dynamic pool specifies a range of ip adressess that can be used for this mapping. This is configured later.
+
+The next step is to create a configuration file for tayga, a very simple one was created, that you can see [here](input the link!) and placed in /etc/ directory
+For more information on each of the fields, refer to [this](https://github.com/apalrd/tayga/blob/main/tayga.conf.example) example config.
+
+We now need to change the routing setup on the system to send IPv4 and IPv6 packets to tayga. This is done via a list of commands that we have place in [this](input the link!) shell script. And comprises of creating a TUN interface for tayga and setting up the ip adressess and routes for that interface, routing our IPv6 prefix and IPv4 dynamic pool adressess to it. We also need to create a masquerade for the dynamic pool adressess, since this pool only contains private adressess, this will make it so that outgoing packages are sent under the gateway's public ip address. IPv4 and IPv6 forwarding also needs to be enabled. The script fishished by running Tayga, everything should be in order after this.
+
+To make the NAT64 Interface plug and play we added a system services that runs the tayga setup script as a daemon on startup, after the lowpan service:
+```bash
+chmod +x tayga_setup.sh
+sudo cp tayga_setup.sh /usr/local/bin/tayga_setup.sh
+sudo nano /etc/systemd/system/tayga.service
+```
+paste:
+```bash
+[Unit]
+Description=TAYGA NAT64 Setup
+After=network-online.target lowpan.service
+Wants=network-online.target
+Requires=lowpan.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/tayga_setup.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+```
+Save file <br>
+Run:
+```bash
+sudo systemctl daemon-reexec
+sudo systemctl daemon-reload
+sudo systemctl enable tayga.service
+
+sudo reboot
+```
+
