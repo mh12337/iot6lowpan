@@ -1,0 +1,25 @@
+{
+	"start":	{
+		"connected":	[],
+		"version":	"iperf 3.18",
+		"system_info":	"Linux rpi02 6.12.75+rpt-rpi-v6 #1 Raspbian 1:6.12.75-1+rpt1 (2026-03-11) armv6l",
+		"timestamp":	{
+			"time":	"Sun, 03 May 2026 22:41:45 GMT",
+			"timesecs":	1777848105
+		},
+		"connecting_to":	{
+			"host":	"fd00::8",
+			"port":	5201
+		},
+		"cookie":	"vjco65xnuv6fhpmupehsqhiwc6rk4r6q67gx",
+		"target_bitrate":	40000,
+		"fq_rate":	0,
+		"sock_bufsize":	0,
+		"sndbuf_actual":	180224,
+		"rcvbuf_actual":	180224
+	},
+	"intervals":	[],
+	"end":	{
+	},
+	"error":	"unable to read from stream socket: Resource temporarily unavailable"
+}
