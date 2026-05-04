@@ -122,4 +122,10 @@ Finally, before getting communiaction working from the source nodes to the inter
 ip -6 addr add fd00::8/64 dev lowpan0 # whatever address you would like
 sudo ip -6 route add 2001:db8:1:ffff::/96 via fe80::11:2233:4455:6677 dev lowpan0 # route NAT64 prefixed addresses to the router nodes link address
 ```
-
+We pinged address 8.8.8.8 from rpi08 and captured the data flow in the router device with the NAT64 interface (rpi04), by saving the tcpdump data from the nat64, lowpan0, wlan0 interfaces into pcap files, that we then moved to our personal computers to analyize with wireshark.
+Commands to get package flow data:
+```bash
+sudo tcpdump -i lowpan0 'icmp or icmp6' -vvv -w lowpan.pcap &
+sudo tcpdump -i nat64   'icmp or icmp6' -vvv -w nat64.pcap &
+sudo tcpdump -i wlan0   'icmp or icmp6' -vvv -w wlan.pcap &
+```
