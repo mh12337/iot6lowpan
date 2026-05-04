@@ -54,33 +54,6 @@ def run_command(cmd, timeout):
     return completed
 
 
-def parse_iperf_json(json_text):
-    data = json.loads(json_text)
-
-    end = data.get("end", {})
-    summary = end.get("sum", {})
-
-    bits_per_second = summary.get("bits_per_second", None)
-    jitter_ms = summary.get("jitter_ms", None)
-    lost_packets = summary.get("lost_packets", None)
-    packets = summary.get("packets", None)
-    lost_percent = summary.get("lost_percent", None)
-    bytes_transferred = summary.get("bytes", None)
-
-    throughput_kbps = None
-    if bits_per_second is not None:
-        throughput_kbps = bits_per_second / 1000.0
-
-    return {
-        "throughput_kbps": throughput_kbps,
-        "jitter_ms": jitter_ms,
-        "lost_packets": lost_packets,
-        "packets": packets,
-        "lost_percent": lost_percent,
-        "bytes": bytes_transferred,
-    }
-
-
 def main():
     parser = argparse.ArgumentParser(
         description="Run single-hop 6LoWPAN iperf3 measurement matrix."
@@ -132,24 +105,6 @@ def main():
 
     csv_path = outdir / "summary_singlehop.csv"
 
-    fieldnames = [
-        "timestamp",
-        "server",
-        "payload_bytes",
-        "bitrate_kbps",
-        "repeat",
-        "duration_s",
-        "success",
-        "throughput_kbps",
-        "jitter_ms",
-        "lost_packets",
-        "packets",
-        "lost_percent",
-        "bytes",
-        "json_file",
-        "error",
-    ]
-
     with csv_path.open("w", newline="") as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
@@ -169,7 +124,7 @@ def main():
                     cmd = [
                         args.iperf,
                         "-6",
-			"-c",
+			            "-c",
                         args.server,
                         "-u",
                         "-b",
