@@ -181,14 +181,14 @@ def do_plots(times, bitrates, jitters, lost_percents, recv_birates, bavg, ravg, 
     plt.plot(times, bitrates)
     plt.xlabel("Time (s)")
     plt.ylabel("Bitrate (kbps)")
-    plt.title(f"Throughput over time (avg.: {bavg})")
+    plt.title(f"Throughput over time (avg.: {(bavg/1000):.3f} kbps)")
     plt.grid()
     # receiver/server bitrate
     plt.subplot(4, 1, 2)
     plt.plot(times, recv_birates)
     plt.xlabel("Time (s)")
     plt.ylabel("Receiver/server Bitrate (kbps)")
-    plt.title(f"Receiver throughput over time (avg.: {ravg})")
+    plt.title(f"Receiver throughput over time (avg.: {(ravg/1000):.3f} kbps)")
     plt.grid()
 
     #jitter
@@ -208,7 +208,7 @@ def do_plots(times, bitrates, jitters, lost_percents, recv_birates, bavg, ravg, 
     plt.grid()
 
     plt.tight_layout()
-    save_as = f"barchart-{fileName}.png"
+    save_as = f"plots-{fileName}.png"
     plt.savefig(save_as)
     print(f" - Plot saved as {save_as}")
     if show:
@@ -261,7 +261,7 @@ def do_barcharts(metrics_list, show=False):
     if show:
         plt.show()
     
-def do_table(metrics_list, multirun: bool):
+def do_table(metrics_list, multirun: bool, pps):
     # group by blksize/payload size and target bitrate
     groups = defaultdict(list)
 
@@ -274,7 +274,7 @@ def do_table(metrics_list, multirun: bool):
     for (blksize, bitrate), entries in groups.items():
         
         n = len(entries)
-        if n > 1:
+        if n > 1 and not multirun:
             print(f"\n! obs: multiple tests ({n}) is made with payload size: {blksize} and target bitrate {bitrate}... if this is not a mistake, run script with flag --m . last input file, which was plotted, is also used for this table")
 
         if multirun:
@@ -296,7 +296,8 @@ def do_table(metrics_list, multirun: bool):
             "avg_throughput_receiver": avg_throughput_receiver,
             "avg_jitter_ms": avg_jitter,
             "avg_loss_percent": avg_loss,
-            "runs": n
+            "runs": n,
+            "pps": pps 
         })
 
     table.sort(key=lambda x: (x["target_bitrate"], x["blksize"])) 
@@ -309,6 +310,7 @@ def do_table(metrics_list, multirun: bool):
     w_j  = 10
     w_l  = 10
     w_n  = 6
+   # w_p  = 12
 
     print("\n=== Summary table of all tests ===")
 
@@ -319,8 +321,10 @@ def do_table(metrics_list, multirun: bool):
         f"{'Receiver kbps':>{w_r}} | "
         f"{'Jitter (ms)':>{w_j}} | "
         f"{'Loss (%)':>{w_l}} | "
-        f"{'Runs':>{w_n}}"
+        f"{'Runs':>{w_n}} | "
+       # f"{'Packets/s':>{w_p}}"
     )
+
     print(header)
     print("-" * len(header))
 
@@ -332,7 +336,8 @@ def do_table(metrics_list, multirun: bool):
             f"{row['avg_throughput_receiver']:>{w_r}.2f} | "
             f"{row['avg_jitter_ms']:>{w_j}.3f} | "
             f"{row['avg_loss_percent']:>{w_l}.2f} | "
-            f"{row['runs']:>{w_n}}"
+            f"{row['runs']:>{w_n}} | "
+            #f"{row['pps']:>{w_p}.2f}"
         )
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="iperf Analyzer")
@@ -354,7 +359,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     directory = args.directory
   
-
+    pps = list
     for fn in os.listdir(directory):
         if fn.endswith(".json"):
             filepath = os.path.join(directory, fn)
@@ -380,4 +385,4 @@ if __name__ == "__main__":
             
     print("\n[*] Generating bar charts...")
     do_barcharts(metricsAll, args.pltshow)
-    do_table(metricsAll, args.m)
+    do_table(metricsAll, args.m, pps)
