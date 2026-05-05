@@ -168,12 +168,13 @@ def save_to_excel(metrics, times, bitrates, stamp=None):
     wb.save(filename)
     print(f"Saved to {filename}")
 
-def do_plots(times, bitrates, jitters, lost_percents, recv_birates, bavg, ravg, stamp=None, show=False):
+def do_plots(times, bitrates, jitters, lost_percents, recv_birates, bavg, ravg, size, tb, stamp=None, show=False):
     n = min(len(times), len(bitrates), len(jitters), len(lost_percents), len(recv_bitrates))
     if n == 0:
         print("Skipping plot cycle due to missing data")
         return
     plt.figure(figsize=(12, 8))
+    plt.suptitle(f"Network performance\n size: {size}, target bitrate: {tb}", fontsize=16)
     
 
     # bitrate
@@ -378,7 +379,8 @@ if __name__ == "__main__":
             (_, jitters), (ltimes, lost_pct), (btimes, recv_bitrates) = extract_from_server_output(data)
            # jitter_stats = print( stats(jitters)) # not useful as jitter is already an EMA
             # cut last 2 jitter values off as n-1 is for extremely short interval and doesnt add up with intervals/times and n is just the final value
-            do_plots(times, bitrates, jitters[:-2], lost_pct[:-2], recv_bitrates[:-2], metrics["bits_per_second"], metrics["recv_bits_per_second"], "", args.pltshow)
+            do_plots(times, bitrates, jitters[:-2], lost_pct[:-2], recv_bitrates[:-2], metrics["bits_per_second"], metrics["recv_bits_per_second"],
+                     metrics["blksize"],  metrics["target_bitrate"], "", args.pltshow)
             if jitters:
                 print(f"Final jitter estimate: {jitters[-1]}")
             
