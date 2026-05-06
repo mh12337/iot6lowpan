@@ -12,9 +12,11 @@ import argparse
 import statistics
 import numpy as np
 from collections import defaultdict
+from pathlib import Path
 
 metricsAll = []
 fileName = "placeholder"
+saveDir = "./iperf-analysis"
 
 def get_data(file_path):
     with open(file_path, 'r') as f:
@@ -50,6 +52,7 @@ def extract_iperf_metrics(data):
         "goodput": recv_summary["bits_per_second"] / 1000,
         "recv_bits_per_second": recv_summary["bits_per_second"],
         "out_of_order": data["end"]["streams"][0]["udp"]["out_of_order"],
+        "pps": float, #placeholder
 
         #cpu util
         "cpu_host_total": cpuutil["host_total"],
@@ -168,50 +171,50 @@ def save_to_excel(metrics, times, bitrates, stamp=None):
     wb.save(filename)
     print(f"Saved to {filename}")
 
-def do_plots(times, bitrates, jitters, lost_percents, recv_birates, bavg, ravg, size, tb, stamp=None, show=False):
-    n = min(len(times), len(bitrates), len(jitters), len(lost_percents), len(recv_bitrates))
+def do_plots(times, bitrates, jitters, lost_percents, recv_bitrates, bavg, ravg, size, tb, ppsd, stamp=None, show=False):
+    n = min(len(times),len(bitrates),len(jitters),len(lost_percents),len(recv_bitrates),len(ppsd))
     if n == 0:
         print("Skipping plot cycle due to missing data")
         return
-    plt.figure(figsize=(12, 8))
-    plt.suptitle(f"Network performance\n size: {size}, target bitrate: {tb}", fontsize=16)
-    
 
-    # bitrate
-    plt.subplot(4, 1, 1)
-    plt.plot(times, bitrates)
-    plt.xlabel("Time (s)")
-    plt.ylabel("Bitrate (kbps)")
-    plt.title(f"Throughput over time (avg.: {(bavg/1000):.3f} kbps)")
-    plt.grid()
-    # receiver/server bitrate
-    plt.subplot(4, 1, 2)
-    plt.plot(times, recv_birates)
-    plt.xlabel("Time (s)")
-    plt.ylabel("Receiver/server Bitrate (kbps)")
-    plt.title(f"Receiver throughput over time (avg.: {(ravg/1000):.3f} kbps)")
-    plt.grid()
+    fig, axs = plt.subplots(4,1,figsize=(12, 10),sharex=True)   
+    fig.suptitle(f"Network performance\nPayload size: {size} B | Target bitrate: {tb} kbps",fontsize=16)
 
-    #jitter
-    plt.subplot(4, 1, 3)
-    plt.plot(times, jitters)
-    plt.xlabel("Time (s)")
-    plt.ylabel("Jitter (ms)")
-    plt.title("Jitter over time")
-    plt.grid()
+    axs[0].plot(times, bitrates,label=f"Sender ({bavg/1000:.2f} kbps avg)")
+    axs[0].plot(times, recv_bitrates, "--",label=f"Receiver ({ravg/1000:.2f} kbps avg)")
+    axs[0].set_ylabel("kbps")
+    axs[0].set_title("Throughput")
+    axs[0].legend()
+    axs[0].grid(alpha=0.3)
 
-    # lost packages
-    plt.subplot(4, 1, 4)
-    plt.plot(times, lost_percents)
-    plt.xlabel("Time (s)")
-    plt.ylabel("Packet Loss (%)")
-    plt.title("Packet Loss over time")
-    plt.grid()
+    axs[1].plot(times, jitters)
+    axs[1].set_ylabel("ms")
+    axs[1].set_title("Jitter")
+    axs[1].grid(alpha=0.3)
 
-    plt.tight_layout()
+    axs[2].plot(times, lost_percents)
+    axs[2].set_ylabel("%")
+    axs[2].set_title("Packet loss")
+    axs[2].grid(alpha=0.3)
+
+    axs[3].plot(times, ppsd)
+    axs[3].set_ylabel("PPS")
+    axs[3].set_title("Packets per second (PPS)")
+    axs[3].set_xlabel("Time (s)")
+    axs[3].grid(alpha=0.3)
+
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+
+    save_dir = Path(saveDir)
+    save_dir.mkdir(parents=True, exist_ok=True)
+
     save_as = f"plots-{fileName}.png"
-    plt.savefig(save_as)
-    print(f" - Plot saved as {save_as}")
+    save_path = save_dir / save_as
+
+    plt.savefig(save_path, dpi=300)
+
+    print(f" - Plot saved at {save_path}")
+
     if show:
         plt.show()
 
@@ -257,12 +260,16 @@ def do_barcharts(metrics_list, show=False):
 
     plt.tight_layout()
     save_as = "barchart-results.png"
-    plt.savefig(save_as)
-    print(f" - Bar chart saved as {save_as}")
+    save_dir = Path(saveDir)
+    save_dir.mkdir(parents=True, exist_ok=True)
+    save_path = save_dir / save_as
+    plt.savefig(save_path)
+    print(f" - Bar chart saved at {save_path}")
     if show:
         plt.show()
     
-def do_table(metrics_list, multirun: bool, pps):
+def do_table(metrics_list, multirun: bool):
+
     # group by blksize/payload size and target bitrate
     groups = defaultdict(list)
 
@@ -283,12 +290,14 @@ def do_table(metrics_list, multirun: bool, pps):
             avg_throughput_receiver = sum(e["goodput"] for e in entries) / n
             avg_jitter = sum(e["jitter_ms"] for e in entries) / n
             avg_loss = sum(e["lost_percent"] for e in entries) / n
+            pps_avg = sum(e["pps"] for e in entries) / n
         else:
             e = entries.pop()
             avg_throughput_sender = e["bitrate_kbps"]
             avg_throughput_receiver = e["goodput"]
             avg_jitter = e["jitter_ms"]
             avg_loss = e["lost_percent"]
+            pps_avg = e["pps"]
 
         table.append({
             "blksize": blksize,
@@ -298,7 +307,7 @@ def do_table(metrics_list, multirun: bool, pps):
             "avg_jitter_ms": avg_jitter,
             "avg_loss_percent": avg_loss,
             "runs": n,
-            "pps": pps 
+            "pps": pps_avg
         })
 
     table.sort(key=lambda x: (x["target_bitrate"], x["blksize"])) 
@@ -311,7 +320,7 @@ def do_table(metrics_list, multirun: bool, pps):
     w_j  = 10
     w_l  = 10
     w_n  = 6
-   # w_p  = 12
+    w_p  = 12
 
     print("\n=== Summary table of all tests ===")
 
@@ -323,7 +332,7 @@ def do_table(metrics_list, multirun: bool, pps):
         f"{'Jitter (ms)':>{w_j}} | "
         f"{'Loss (%)':>{w_l}} | "
         f"{'Runs':>{w_n}} | "
-       # f"{'Packets/s':>{w_p}}"
+        f"{'Avg. Packets/s':>{w_p}}"
     )
 
     print(header)
@@ -338,7 +347,7 @@ def do_table(metrics_list, multirun: bool, pps):
             f"{row['avg_jitter_ms']:>{w_j}.3f} | "
             f"{row['avg_loss_percent']:>{w_l}.2f} | "
             f"{row['runs']:>{w_n}} | "
-            #f"{row['pps']:>{w_p}.2f}"
+            f"{row['pps']:>{w_p}.2f}"
         )
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="iperf Analyzer")
@@ -360,7 +369,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     directory = args.directory
   
-    pps = list
+    pps = []
     for fn in os.listdir(directory):
         if fn.endswith(".json"):
             filepath = os.path.join(directory, fn)
@@ -369,22 +378,26 @@ if __name__ == "__main__":
 
             data = get_data(filepath)
             metrics = extract_iperf_metrics(data)
-            metricsAll.append(metrics)
 
             #stamp = metrics["stamp"]
             #stamp = datetime.datetime.fromtimestamp(stamp).strftime("%d%m%Y-%H%M%S")
-
-            times, bitrates, pps = get_time_series_data(data)
+            # get #intervals, and interval bitrates, pps
+            times, bitrates, ppsd = get_time_series_data(data)
+            #print(stats(ppsd))
+            pps_mean, pps_max_, pps_std = stats(ppsd)
+            metrics["pps"] = pps_mean
+            metricsAll.append(metrics)
+            #pps.append(pps_mean)
             #print(f"pps: {pps}")
             (_, jitters), (ltimes, lost_pct), (btimes, recv_bitrates) = extract_from_server_output(data)
            # jitter_stats = print( stats(jitters)) # not useful as jitter is already an EMA
             # cut last 2 jitter values off as n-1 is for extremely short interval and doesnt add up with intervals/times and n is just the final value
             do_plots(times, bitrates, jitters[:-2], lost_pct[:-2], recv_bitrates[:-2], metrics["bits_per_second"], metrics["recv_bits_per_second"],
-                     metrics["blksize"],  metrics["target_bitrate"], "", args.pltshow)
+                     metrics["blksize"],  metrics["target_bitrate"], ppsd, "", args.pltshow)
             if jitters:
                 print(f"Final jitter estimate: {jitters[-1]}")
             
             
     print("\n[*] Generating bar charts...")
     do_barcharts(metricsAll, args.pltshow)
-    do_table(metricsAll, args.m, pps)
+    do_table(metricsAll, args.m)
