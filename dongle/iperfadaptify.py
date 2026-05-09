@@ -383,17 +383,30 @@ if __name__ == "__main__":
             #stamp = datetime.datetime.fromtimestamp(stamp).strftime("%d%m%Y-%H%M%S")
             # get #intervals, and interval bitrates, pps
             times, bitrates, ppsd = get_time_series_data(data)
-            #print(stats(ppsd))
             pps_mean, pps_max_, pps_std = stats(ppsd)
             metrics["pps"] = pps_mean
             metricsAll.append(metrics)
-            #pps.append(pps_mean)
-            #print(f"pps: {pps}")
             (_, jitters), (ltimes, lost_pct), (btimes, recv_bitrates) = extract_from_server_output(data)
-           # jitter_stats = print( stats(jitters)) # not useful as jitter is already an EMA
-            # cut last 2 jitter values off as n-1 is for extremely short interval and doesnt add up with intervals/times and n is just the final value
-            do_plots(times, bitrates, jitters[:-2], lost_pct[:-2], recv_bitrates[:-2], metrics["bits_per_second"], metrics["recv_bits_per_second"],
-                     metrics["blksize"],  metrics["target_bitrate"], ppsd, "", args.pltshow)
+            # previous logic removed the last 2 elements of jitter/loss/recv lists; keep that behavior
+            # but ensure all series have the same length before plotting to avoid matplotlib shape errors
+            jit_trim = jitters[:-2] if len(jitters) > 2 else jitters[:]
+            lost_trim = lost_pct[:-2] if len(lost_pct) > 2 else lost_pct[:]
+            recv_trim = recv_bitrates[:-2] if len(recv_bitrates) > 2 else recv_bitrates[:]
+
+            n = min(len(times), len(bitrates), len(jit_trim), len(lost_trim), len(recv_trim), len(ppsd))
+            if n == 0:
+                print("Skipping plot cycle due to missing data after alignment")
+            else:
+                times_plot = times[:n]
+                bitrates_plot = bitrates[:n]
+                jitters_plot = jit_trim[:n]
+                lost_plot = lost_trim[:n]
+                recv_plot = recv_trim[:n]
+                pps_plot = ppsd[:n]
+
+                do_plots(times_plot, bitrates_plot, jitters_plot, lost_plot, recv_plot, metrics["bits_per_second"], metrics["recv_bits_per_second"],
+                         metrics["blksize"], metrics["target_bitrate"], pps_plot, "", args.pltshow)
+
             if jitters:
                 print(f"Final jitter estimate: {jitters[-1]}")
             
