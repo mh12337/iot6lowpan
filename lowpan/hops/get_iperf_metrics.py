@@ -14,6 +14,7 @@ import argparse
 import shlex
 import subprocess
 from pathlib import Path
+import time
 
 
 BITRATES_KBPS = [10, 40, 80]
@@ -23,37 +24,64 @@ PORT = 5123
 OUTPUT_DIR = "."
 IPERF_BIN = "iperf3"
 
+MAX_RETRIES = 3
+RETRY_DELAY_SEC = 2
+
 
 def run_iperf_test(
-	destination_with_iface: str,
-	bitrate_kbps: int,
-	payload_size: int,
-	outdir: Path,
+    destination_with_iface: str,
+    bitrate_kbps: int,
+    payload_size: int,
+    outdir: Path,
 ) -> int:
-	output_path = outdir / f"data_b{bitrate_kbps}_l{payload_size}.json"
 
-	cmd = (
-		f"{shlex.quote(IPERF_BIN)} "
-		f"-c {shlex.quote(destination_with_iface)} "
-		f"-p {PORT} "
-		"-u "
-		f"-b {bitrate_kbps}k "
-		f"-l {payload_size} "
-		"--get-server-output -J "
-		f"> {shlex.quote(str(output_path))}"
-	)
+    output_path = outdir / f"data_b{bitrate_kbps}_l{payload_size}.json"
 
-	print(f"Running: {cmd}")
-	completed = subprocess.run(cmd, shell=True, stderr=subprocess.PIPE, text=True)
+    cmd = (
+        f"{shlex.quote(IPERF_BIN)} "
+        f"-c {shlex.quote(destination_with_iface)} "
+        f"-p {PORT} "
+        "-u "
+        f"-b {bitrate_kbps}k "
+        f"-l {payload_size} "
+        "--get-server-output -J "
+        f"> {shlex.quote(str(output_path))}"
+    )
 
-	if completed.returncode != 0:
-		print(
-			f"FAILED b={bitrate_kbps}k l={payload_size}: {completed.stderr.strip()}"
-		)
-	else:
-		print(f"OK -> {output_path}")
+    for attempt in range(1, MAX_RETRIES + 1):
 
-	return completed.returncode
+        print(
+            f"Running test "
+            f"(b={bitrate_kbps}k l={payload_size}) "
+            f"[attempt {attempt}/{MAX_RETRIES}]"
+        )
+
+        completed = subprocess.run(
+            cmd,
+            shell=True,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        if completed.returncode == 0:
+            print(f"OK -> {output_path}")
+            return 0
+
+        print(
+            f"FAILED attempt {attempt}: "
+            f"{completed.stderr.strip()}"
+        )
+
+        if attempt < MAX_RETRIES:
+            print(f"Retrying in {RETRY_DELAY_SEC}s...\n")
+            time.sleep(RETRY_DELAY_SEC)
+
+    print(
+        f"GAVE UP after {MAX_RETRIES} attempts "
+        f"(b={bitrate_kbps}k l={payload_size})"
+    )
+
+    return 1
 
 
 def main() -> int:
@@ -87,6 +115,7 @@ def main() -> int:
 			)
 			if rc != 0:
 				failures += 1
+			time.sleep(2)
 
 	print(f"Finished: {total - failures}/{total} successful")
 	return 0 if failures == 0 else 1
