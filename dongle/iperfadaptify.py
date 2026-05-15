@@ -291,6 +291,7 @@ def do_table(metrics_list, multirun: bool):
             avg_jitter = sum(e["jitter_ms"] for e in entries) / n
             avg_loss = sum(e["lost_percent"] for e in entries) / n
             pps_avg = sum(e["pps"] for e in entries) / n
+            total_p = sum(e["total_packets"] for e in entries) / n
         else:
             e = entries.pop()
             avg_throughput_sender = e["bitrate_kbps"]
@@ -298,16 +299,18 @@ def do_table(metrics_list, multirun: bool):
             avg_jitter = e["jitter_ms"]
             avg_loss = e["lost_percent"]
             pps_avg = e["pps"]
+            total_p = e["total_packets"]
 
         table.append({
             "blksize": blksize,
-            "target_bitrate": bitrate,
+            "target_bitrate": bitrate / 1000,
             "avg_throughput_sender": avg_throughput_sender,
             "avg_throughput_receiver": avg_throughput_receiver,
             "avg_jitter_ms": avg_jitter,
             "avg_loss_percent": avg_loss,
-            "runs": n,
-            "pps": pps_avg
+           # "runs": n,
+            "pps": pps_avg,
+            "total_p": total_p
         })
 
     table.sort(key=lambda x: (x["target_bitrate"], x["blksize"])) 
@@ -319,8 +322,9 @@ def do_table(metrics_list, multirun: bool):
     w_r  = 14
     w_j  = 10
     w_l  = 10
-    w_n  = 6
+   # w_n  = 6
     w_p  = 12
+    w_tp = 12
 
     print("\n=== Summary table of all tests ===")
 
@@ -331,8 +335,9 @@ def do_table(metrics_list, multirun: bool):
         f"{'Receiver kbps':>{w_r}} | "
         f"{'Jitter (ms)':>{w_j}} | "
         f"{'Loss (%)':>{w_l}} | "
-        f"{'Runs':>{w_n}} | "
-        f"{'Avg. Packets/s':>{w_p}}"
+       # f"{'Runs':>{w_n}} | "
+        f"{'Avg. Packets/s':>{w_p}} | "
+        f"{'Total packets':>{w_tp}}"
     )
 
     print(header)
@@ -346,8 +351,10 @@ def do_table(metrics_list, multirun: bool):
             f"{row['avg_throughput_receiver']:>{w_r}.2f} | "
             f"{row['avg_jitter_ms']:>{w_j}.3f} | "
             f"{row['avg_loss_percent']:>{w_l}.2f} | "
-            f"{row['runs']:>{w_n}} | "
-            f"{row['pps']:>{w_p}.2f}"
+           # f"{row['runs']:>{w_n}} | "
+            f"{row['pps']:>{w_p}.2f} | "
+            f"{row['total_p']:>{w_tp}.2f} | "
+
         )
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="iperf Analyzer")
