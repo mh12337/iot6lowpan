@@ -28,7 +28,11 @@ def extract_iperf_metrics(data):
     connection = data["start"]["connected"][0]
     timestamp = data["start"]["timestamp"]["timesecs"]
     testinfo = data["start"]["test_start"]
-    summary = data["end"]["sum"]
+    is_tcp = testinfo["protocol"] == "TCP"
+    if is_tcp:
+        summary = data["end"]["sum_sent"]
+    else:
+        summary = data["end"]["sum"]
     recv_summary = data["end"]["sum_received"]
     cpuutil = data["end"]["cpu_utilization_percent"]
     result = {
@@ -37,34 +41,43 @@ def extract_iperf_metrics(data):
         "local_host": connection["local_host"],
         "remote_host": connection["remote_host"],
         "protocol": testinfo["protocol"],
-        "num_streams:": testinfo["num_streams"],
+        "num_streams": testinfo["num_streams"],
         "blksize": testinfo["blksize"],
         "duration": testinfo["duration"],
         "target_bitrate": testinfo["target_bitrate"],
         "interval": testinfo["interval"],
-        #data
         "bits_per_second": summary["bits_per_second"],
         "bitrate_kbps": summary["bits_per_second"] / 1000,
-        "jitter_ms": summary["jitter_ms"],
-        "total_packets": summary["packets"],
-        "lost_packets": summary["lost_packets"],
-        "lost_percent": summary["lost_percent"],
         "goodput": recv_summary["bits_per_second"] / 1000,
         "recv_bits_per_second": recv_summary["bits_per_second"],
-        "out_of_order": data["end"]["streams"][0]["udp"]["out_of_order"],
-        "pps": float, #placeholder
-
-        #cpu util
         "cpu_host_total": cpuutil["host_total"],
         "cpu_host_user": cpuutil["host_user"],
         "cpu_host_system": cpuutil["host_system"],
-
         "cpu_remote_total": cpuutil["remote_total"],
         "cpu_remote_user": cpuutil["remote_user"],
         "cpu_remote_system": cpuutil["remote_system"],
-
+        "pps": float,
+        "protocol": testinfo["protocol"]
     }
 
+    if is_tcp:
+        sender = data["end"]["streams"][0]["sender"]
+        result["retransmits"]  = summary.get("retransmits", 0)
+        result["mean_rtt_us"]  = sender.get("mean_rtt", 0)
+        result["max_rtt_us"]   = sender.get("max_rtt", 0)
+        result["min_rtt_us"]   = sender.get("min_rtt", 0)
+        # set neutral defaults so the rest of the pipeline doesn't crash
+        result["jitter_ms"]    = 0.0
+        result["total_packets"] = 0
+        result["lost_packets"]  = 0
+        result["lost_percent"]  = 0.0
+        result["out_of_order"]  = 0
+    else:
+        result["jitter_ms"]    = summary["jitter_ms"]
+        result["total_packets"] = summary["packets"]
+        result["lost_packets"]  = summary["lost_packets"]
+        result["lost_percent"]  = summary["lost_percent"]
+        result["out_of_order"]  = data["end"]["streams"][0]["udp"]["out_of_order"]
     return result
 
 
@@ -76,7 +89,7 @@ def stats(data):
     std = statistics.stdev(data)
     return mean, ma, std
 
-def get_time_series_data(data):
+def get_time_series_data(data, skip=False):
     times = []
     bitrates = []
     pps = []
@@ -84,12 +97,15 @@ def get_time_series_data(data):
         t = interval["sum"]["end"]        
         b = interval["sum"]["bits_per_second"] / 1000  
         
-        packets = interval["sum"]["packets"]
-        seconds = interval["sum"]["seconds"]
+        if not skip:
+            packets = interval["sum"]["packets"]
+            seconds = interval["sum"]["seconds"]
 
-        prate = packets / seconds
+            prate = packets / seconds
 
-        pps.append(prate)
+            pps.append(prate)
+        else:
+            pps.append(0)
         times.append(t)
         bitrates.append(b)
 
@@ -97,7 +113,7 @@ def get_time_series_data(data):
 
 
 # extracts jitter, loss and throughput values from --get-server-output 
-def extract_from_server_output(data):
+def extract_from_server_output(data, skip=False):
     text = data.get("server_output_text", "")
     if text == "":
         return ([], []), ([], []), ([], [])
@@ -107,29 +123,30 @@ def extract_from_server_output(data):
     ltimes = []
     jtimes = []
     btimes = []
-    jitterPattern = re.compile(
-        r"\[\s*\d+\]\s+([\d.]+)-([\d.]+)\s+sec.*?([\d.]+)\s+ms"
-    )
-    lostpctPattern = re.compile(
-        r"\[\s*\d+\]\s+([\d.]+)-([\d.]+)\s+sec.*?\(([\d.]+)%\)"
-    )
+    if not skip:
+        jitterPattern = re.compile(
+            r"\[\s*\d+\]\s+([\d.]+)-([\d.]+)\s+sec.*?([\d.]+)\s+ms"
+        )
+        lostpctPattern = re.compile(
+            r"\[\s*\d+\]\s+([\d.]+)-([\d.]+)\s+sec.*?\(([\d.]+)%\)"
+        )
+        for match in jitterPattern.finditer(text):
+            start = float(match.group(1))
+            end = float(match.group(2))
+            jitter = float(match.group(3))
+            jtimes.append(end)
+            jitters.append(jitter)
+        for match in lostpctPattern.finditer(text):
+            end = float(match.group(2))
+            loss = float(match.group(3))
+
+            ltimes.append(end)
+            loss_pct.append(loss)
     tpPattern = re.compile(
          r"\[\s*\d+\]\s+([\d.]+)-([\d.]+)\s+sec.*?([\d.]+)\s+([KMG])bits/sec"
     )
 
-    for match in jitterPattern.finditer(text):
-        start = float(match.group(1))
-        end = float(match.group(2))
-        jitter = float(match.group(3))
-
-        jtimes.append(end)
-        jitters.append(jitter)
-    for match in lostpctPattern.finditer(text):
-        end = float(match.group(2))
-        loss = float(match.group(3))
-
-        ltimes.append(end)
-        loss_pct.append(loss)
+   
     for match in tpPattern.finditer(text):
         end = float(match.group(2))
         value = float(match.group(3))
@@ -217,7 +234,37 @@ def do_plots(times, bitrates, jitters, lost_percents, recv_bitrates, bavg, ravg,
 
     if show:
         plt.show()
+def do_plots_tcp(times, bitrates, recv_bitrates, bavg, ravg, size, tb, ppsd, stamp=None, show=False):
+    print(bitrates)
+    fig, axs = plt.subplots(2,1,figsize=(12, 10),sharex=True)   
+    fig.suptitle(f"Network performance TCP\nPayload size: {size} B | Target bitrate: {tb} kbps",fontsize=16)
+    axs[0].plot(times, bitrates,label=f"Sender ({bavg/1000:.2f} kbps avg)")
+    axs[0].plot(times, recv_bitrates, "--",label=f"Receiver ({ravg/1000:.2f} kbps avg)")
+    axs[0].set_ylabel("kbps")
+    axs[0].set_title("Throughput")
+    axs[0].legend()
+    axs[0].grid(alpha=0.3)
+    
+    axs[1].plot(times, ppsd)
+    axs[1].set_ylabel("PPS")
+    axs[1].set_title("Packets per second (PPS)")
+    axs[1].set_xlabel("Time (s)")
+    axs[1].grid(alpha=0.3)
 
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+
+    save_dir = Path(saveDir)
+    save_dir.mkdir(parents=True, exist_ok=True)
+
+    save_as = f"plots-{fileName}.png"
+    save_path = save_dir / save_as
+
+    plt.savefig(save_path, dpi=300)
+
+    print(f" - Plot saved at {save_path}")
+
+    if show:
+        plt.show()
 def do_barcharts(metrics_list, show=False):
     filtered = [
         {
@@ -268,87 +315,92 @@ def do_barcharts(metrics_list, show=False):
     if show:
         plt.show()
     
-def do_table(metrics_list, multirun: bool):
-
-    # group by blksize/payload size and target bitrate
+def _build_groups(metrics_list, multirun, keys):
     groups = defaultdict(list)
-
     for m in metrics_list:
         key = (m["blksize"], m["target_bitrate"])
         groups[key].append(m)
 
     table = []
-
     for (blksize, bitrate), entries in groups.items():
-        
         n = len(entries)
         if n > 1 and not multirun:
-            print(f"\n! obs: multiple tests ({n}) is made with payload size: {blksize} and target bitrate {bitrate}... if this is not a mistake, run script with flag --m . last input file, which was plotted, is also used for this table")
-
+            print(f"\n! obs: multiple tests ({n}) with payload size: {blksize} "
+                  f"and target bitrate {bitrate}... run with --m if intentional")
         if multirun:
-            avg_throughput_sender = sum(e["bitrate_kbps"] for e in entries) / n
-            avg_throughput_receiver = sum(e["goodput"] for e in entries) / n
-            avg_jitter = sum(e["jitter_ms"] for e in entries) / n
-            avg_loss = sum(e["lost_percent"] for e in entries) / n
-            pps_avg = sum(e["pps"] for e in entries) / n
+            row = {k: sum(e[k] for e in entries) / n for k in keys}
         else:
-            e = entries.pop()
-            avg_throughput_sender = e["bitrate_kbps"]
-            avg_throughput_receiver = e["goodput"]
-            avg_jitter = e["jitter_ms"]
-            avg_loss = e["lost_percent"]
-            pps_avg = e["pps"]
+            e = entries[-1]
+            row = {k: e[k] for k in keys}
 
         table.append({
-            "blksize": blksize,
-            "target_bitrate": bitrate,
-            "avg_throughput_sender": avg_throughput_sender,
-            "avg_throughput_receiver": avg_throughput_receiver,
-            "avg_jitter_ms": avg_jitter,
-            "avg_loss_percent": avg_loss,
-            "runs": n,
-            "pps": pps_avg
+            "blksize":                 blksize,
+            "target_bitrate":          bitrate / 1000,
+            "avg_throughput_sender":   row["bitrate_kbps"],
+            "avg_throughput_receiver": row["goodput"],
+            "avg_jitter_ms":           row.get("jitter_ms", 0.0),
+            "avg_loss_percent":        row.get("lost_percent", 0.0),
+            "pps":                     row.get("pps", 0.0),
+            "total_p":                 row.get("total_packets", 0),
+            "mean_rtt_ms":             row.get("mean_rtt_us", 0) / 1000,
         })
 
-    table.sort(key=lambda x: (x["target_bitrate"], x["blksize"])) 
+    table.sort(key=lambda x: (x["target_bitrate"], x["blksize"]))
+    return table
 
-    # column widths
-    w_ps = 12
-    w_tb = 14
-    w_s  = 14
-    w_r  = 14
-    w_j  = 10
-    w_l  = 10
-    w_n  = 6
-    w_p  = 12
 
-    print("\n=== Summary table of all tests ===")
+UDP_KEYS = ["bitrate_kbps", "goodput", "jitter_ms", "lost_percent", "pps", "total_packets"]
+TCP_KEYS = ["bitrate_kbps", "goodput", "mean_rtt_us"]
 
-    header = (
-        f"{'Packet size':>{w_ps}} | "
-        f"{'Target kbps':>{w_tb}} | "
-        f"{'Sender kbps':>{w_s}} | "
-        f"{'Receiver kbps':>{w_r}} | "
-        f"{'Jitter (ms)':>{w_j}} | "
-        f"{'Loss (%)':>{w_l}} | "
-        f"{'Runs':>{w_n}} | "
-        f"{'Avg. Packets/s':>{w_p}}"
-    )
 
+def _print_udp_table(metrics_list, multirun):
+    table = _build_groups(metrics_list, multirun, UDP_KEYS)
+    w_ps, w_tb, w_s, w_r, w_j, w_l, w_p, w_tp = 12, 14, 14, 14, 10, 10, 12, 12
+
+    print("\n=== UDP Summary ===")
+    header = (f"{'Packet size':>{w_ps}} | {'Target kbps':>{w_tb}} | "
+              f"{'Sender kbps':>{w_s}} | {'Receiver kbps':>{w_r}} | "
+              f"{'Jitter (ms)':>{w_j}} | {'Loss (%)':>{w_l}} | "
+              f"{'Avg. Packets/s':>{w_p}} | {'Total packets':>{w_tp}}")
     print(header)
     print("-" * len(header))
-
     for row in table:
-        print(
-            f"{row['blksize']:>{w_ps}} | "
-            f"{row['target_bitrate']:>{w_tb}} | "
-            f"{row['avg_throughput_sender']:>{w_s}.2f} | "
-            f"{row['avg_throughput_receiver']:>{w_r}.2f} | "
-            f"{row['avg_jitter_ms']:>{w_j}.3f} | "
-            f"{row['avg_loss_percent']:>{w_l}.2f} | "
-            f"{row['runs']:>{w_n}} | "
-            f"{row['pps']:>{w_p}.2f}"
-        )
+        print(f"{row['blksize']:>{w_ps}} | {row['target_bitrate']:>{w_tb}} | "
+              f"{row['avg_throughput_sender']:>{w_s}.2f} | "
+              f"{row['avg_throughput_receiver']:>{w_r}.2f} | "
+              f"{row['avg_jitter_ms']:>{w_j}.3f} | "
+              f"{row['avg_loss_percent']:>{w_l}.2f} | "
+              f"{row['pps']:>{w_p}.2f} | "
+              f"{row['total_p']:>{w_tp}.2f}")
+
+
+def _print_tcp_table(metrics_list, multirun):
+    table = _build_groups(metrics_list, multirun, TCP_KEYS)
+    w_ps, w_tb, w_s, w_r, w_rtt = 12, 14, 14, 14, 14
+
+    print("\n=== TCP Summary ===")
+    header = (f"{'Packet size':>{w_ps}} | {'Target kbps':>{w_tb}} | "
+              f"{'Sender kbps':>{w_s}} | {'Receiver kbps':>{w_r}} | "
+              f"{'Mean RTT (ms)':>{w_rtt}}")
+    print(header)
+    print("-" * len(header))
+    for row in table:
+        print(f"{row['blksize']:>{w_ps}} | {row['target_bitrate']:>{w_tb}} | "
+              f"{row['avg_throughput_sender']:>{w_s}.2f} | "
+              f"{row['avg_throughput_receiver']:>{w_r}.2f} | "
+              f"{row['mean_rtt_ms']:>{w_rtt}.3f}")
+
+
+def do_table(metrics_list, multirun: bool):
+    udp_metrics = [m for m in metrics_list if m["protocol"] == "UDP"]
+    tcp_metrics = [m for m in metrics_list if m["protocol"] == "TCP"]
+    if udp_metrics:
+        _print_udp_table(udp_metrics, multirun)
+    if tcp_metrics:
+        _print_tcp_table(tcp_metrics, multirun)
+
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="iperf Analyzer")
     parser.add_argument(
@@ -366,6 +418,7 @@ if __name__ == "__main__":
         action="store_true",
         help="Folder contains more runs with same configs"
     )
+
     args = parser.parse_args()
     directory = args.directory
   
@@ -378,39 +431,58 @@ if __name__ == "__main__":
 
             data = get_data(filepath)
             metrics = extract_iperf_metrics(data)
+            is_tcp = metrics["protocol"] == "TCP"
 
             #stamp = metrics["stamp"]
             #stamp = datetime.datetime.fromtimestamp(stamp).strftime("%d%m%Y-%H%M%S")
             # get #intervals, and interval bitrates, pps
-            times, bitrates, ppsd = get_time_series_data(data)
+            times, bitrates, ppsd = get_time_series_data(data, is_tcp)
             pps_mean, pps_max_, pps_std = stats(ppsd)
             metrics["pps"] = pps_mean
             metricsAll.append(metrics)
-            (_, jitters), (ltimes, lost_pct), (btimes, recv_bitrates) = extract_from_server_output(data)
+            (_, jitters), (ltimes, lost_pct), (btimes, recv_bitrates) = extract_from_server_output(data, is_tcp)
             # previous logic removed the last 2 elements of jitter/loss/recv lists; keep that behavior
             # but ensure all series have the same length before plotting to avoid matplotlib shape errors
             jit_trim = jitters[:-2] if len(jitters) > 2 else jitters[:]
             lost_trim = lost_pct[:-2] if len(lost_pct) > 2 else lost_pct[:]
             recv_trim = recv_bitrates[:-2] if len(recv_bitrates) > 2 else recv_bitrates[:]
 
-            n = min(len(times), len(bitrates), len(jit_trim), len(lost_trim), len(recv_trim), len(ppsd))
-            if n == 0:
-                print("Skipping plot cycle due to missing data after alignment")
+            if is_tcp:
+                n = min(len(times), len(bitrates), len(ppsd))
+                if n == 0:
+                    print("Skipping TCP plot cycle due to missing data after alignment")
+                else:
+                    times_plot   = times[:n]
+                    bitrates_plot = bitrates[:n]
+                    pps_plot     = ppsd[:n]
+                    # recv from server output if available, otherwise mirror sender
+                    recv_plot    = recv_trim[:n] if len(recv_trim) >= n else bitrates_plot
+
+                    do_plots_tcp(times_plot, bitrates_plot, recv_plot,
+                                metrics["bits_per_second"], metrics["recv_bits_per_second"],
+                                metrics["blksize"], metrics["target_bitrate"],
+                                pps_plot, "", args.pltshow)
             else:
-                times_plot = times[:n]
-                bitrates_plot = bitrates[:n]
-                jitters_plot = jit_trim[:n]
-                lost_plot = lost_trim[:n]
-                recv_plot = recv_trim[:n]
-                pps_plot = ppsd[:n]
+                n = min(len(times), len(bitrates), len(jit_trim), len(lost_trim), len(recv_trim), len(ppsd))
+                if n == 0:
+                    print("Skipping plot cycle due to missing data after alignment")
+                else:
+                    times_plot    = times[:n]
+                    bitrates_plot = bitrates[:n]
+                    jitters_plot  = jit_trim[:n]
+                    lost_plot     = lost_trim[:n]
+                    recv_plot     = recv_trim[:n]
+                    pps_plot      = ppsd[:n]
 
-                do_plots(times_plot, bitrates_plot, jitters_plot, lost_plot, recv_plot, metrics["bits_per_second"], metrics["recv_bits_per_second"],
-                         metrics["blksize"], metrics["target_bitrate"], pps_plot, "", args.pltshow)
+                    do_plots(times_plot, bitrates_plot, jitters_plot, lost_plot, recv_plot,
+                            metrics["bits_per_second"], metrics["recv_bits_per_second"],
+                            metrics["blksize"], metrics["target_bitrate"],
+                            pps_plot, "", args.pltshow)
 
-            if jitters:
-                print(f"Final jitter estimate: {jitters[-1]}")
+                if jitters:
+                    print(f"Final jitter estimate: {jitters[-1]}")
             
             
     print("\n[*] Generating bar charts...")
-    do_barcharts(metricsAll, args.pltshow)
+    #do_barcharts(metricsAll, args.pltshow)
     do_table(metricsAll, args.m)
