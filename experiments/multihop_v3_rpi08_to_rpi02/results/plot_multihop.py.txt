@@ -1,0 +1,61 @@
+import os
+import json
+import glob
+import matplotlib.pyplot as plt
+
+# 1. Busca tots els vostres fitxers JSON de UDP del multi-hop
+files = glob.glob("data_b*_l*_udp.json")
+results = {}
+
+for filepath in files:
+    filename = os.path.basename(filepath)
+    # Extraiem el bitrate i el payload del nom: ex. "data_b30_l512_udp.json"
+    parts = filename.split('_')
+    rate = int(parts[1].replace('b', ''))  # Extreu el 30
+    size = int(parts[2].replace('l', ''))  # Extreu el 512
+
+    with open(filepath, 'r') as f:
+        try:
+            data = json.load(f)
+            # Calculem l'eficiència a partir dels paquets perduts registrats al summary
+            summary = data["end"]["sum"]
+            lost_percent = summary.get("lost_percent", 0)
+            efficiency = 100 - lost_percent
+
+            rate_str = f"{rate} kbps"
+            if rate_str not in results:
+                results[rate_str] = {}
+            results[rate_str][size] = efficiency
+            
+        except (KeyError, json.JSONDecodeError):
+            print(f"⚠️ Saltant el fitxer {filename} (Test incomplet o corrupte)")
+
+# 2. Configurem el disseny gràfic perquè sigui igual que els que teníeu
+try:
+    plt.style.use('seaborn-v0_8-whitegrid')
+except:
+    plt.style.use('default')
+
+plt.figure(figsize=(10, 6))
+
+# 3. Pintem una línia per cada Bitrate
+for rate_str in sorted(results.keys(), key=lambda x: int(x.split()[0])):
+    # Ordenem per tamany de payload a l'eix X (64, 128, 256...)
+    sizes = sorted(results[rate_str].keys())
+    effs = [results[rate_str][s] for s in sizes]
+    
+    # Marquem els bitrates més alts (80k) amb línia discontínua com a l'original
+    linestyle = '--' if "80" in rate_str or "60" in rate_str else '-'
+    plt.plot(sizes, effs, marker='o', linestyle=linestyle, label=rate_str)
+
+plt.title("Throughput Efficiency (Multihop UDP — receiver ÷ sender × 100)")
+plt.xlabel("Payload size (bytes)")
+plt.ylabel("Efficiency (%)")
+plt.ylim(0, 105)
+plt.xticks([64, 96, 128, 256, 512, 1024]) # Forcem que surtin els vostres payloads a l'eix
+plt.legend(loc="lower left", ncol=3)
+plt.tight_layout()
+
+# 4. Guardem la imatge directament
+plt.savefig("multihop_udp_efficiency.png", dpi=300)
+print("✅ Èxit! Gràfic guardat a la carpeta actual com: multihop_udp_efficiency.png")
