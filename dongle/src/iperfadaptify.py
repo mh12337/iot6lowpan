@@ -1,11 +1,9 @@
 # performs automated analysis on iperf data from json files, each specifying a specific test with different payload size and bitrate, in a specified directory
 # creates plots and charts of relevant metrics and saves them to a file
-# creates tables with every metric for each test
+# creates tables with every metric for each test - udp and tcp
 
 import json
-import datetime
 import matplotlib.pyplot as plt
-from openpyxl import Workbook
 import re
 import os
 import argparse
@@ -146,7 +144,6 @@ def extract_from_server_output(data, skip=False):
          r"\[\s*\d+\]\s+([\d.]+)-([\d.]+)\s+sec.*?([\d.]+)\s+([KMG])bits/sec"
     )
 
-   
     for match in tpPattern.finditer(text):
         end = float(match.group(2))
         value = float(match.group(3))
@@ -161,32 +158,6 @@ def extract_from_server_output(data, skip=False):
         bitrates.append(b)
 
     return (jtimes, jitters), (ltimes, loss_pct), (btimes, bitrates)
-
-def save_to_excel(metrics, times, bitrates, stamp=None):
-    if stamp is None:
-        stamp = datetime.datetime.fromtimestamp(stamp).strftime("%d%m%Y-%H%M%S")
-       
-    filename = f"results-{stamp}.xlsx"
-
-    wb = Workbook()
-
-    # Sheet 1: Summary
-    ws1 = wb.active
-    ws1.title = "summary"
-
-    ws1.append(["Metric", "Value"])
-    for k, v in metrics.items():
-        ws1.append([k, v])
-
-    # Sheet 2: Time series
-    ws2 = wb.create_sheet(title="time_series")
-    ws2.append(["time_s", "bitrate_kbps"])
-
-    for t, b in zip(times, bitrates):
-        ws2.append([t, b])
-
-    wb.save(filename)
-    print(f"Saved to {filename}")
 
 def do_plots(times, bitrates, jitters, lost_percents, recv_bitrates, bavg, ravg, size, tb, ppsd, stamp=None, show=False):
     n = min(len(times),len(bitrates),len(jitters),len(lost_percents),len(recv_bitrates),len(ppsd))
@@ -235,7 +206,6 @@ def do_plots(times, bitrates, jitters, lost_percents, recv_bitrates, bavg, ravg,
     if show:
         plt.show()
 def do_plots_tcp(times, bitrates, recv_bitrates, bavg, ravg, size, tb, ppsd, stamp=None, show=False):
-    print(bitrates)
     fig, axs = plt.subplots(2,1,figsize=(12, 10),sharex=True)   
     fig.suptitle(f"Network performance TCP\nPayload size: {size} B | Target bitrate: {tb} kbps",fontsize=16)
     axs[0].plot(times, bitrates,label=f"Sender ({bavg/1000:.2f} kbps avg)")
@@ -265,55 +235,6 @@ def do_plots_tcp(times, bitrates, recv_bitrates, bavg, ravg, size, tb, ppsd, sta
 
     if show:
         plt.show()
-def do_barcharts(metrics_list, show=False):
-    filtered = [
-        {
-            "bitrate_kbps": m["bitrate_kbps"],
-            "blksize": m["blksize"],
-            "total_packets": m["total_packets"],
-            "lost_packets": m["lost_packets"],
-            "lost_percent": m["lost_percent"],
-        }
-        for m in metrics_list
-    ]
-
-    labels = [
-        f"{m['bitrate_kbps']:.2f} kbps\n{m['blksize']} bytes"
-        for m in filtered
-    ]
-
-    x = np.arange(len(filtered))
-    width = 0.25
-
-    total = [m["total_packets"] for m in filtered]
-    lost = [m["lost_packets"] for m in filtered]
-    lost_pct = [m["lost_percent"] for m in filtered]
-
-    plt.figure(figsize=(12, 6))
-
-    bars_total = plt.bar(x - width, total, width, label="Total")
-    bars_lost = plt.bar(x, lost, width, label="Lost")
-    bars_lost_pct = plt.bar(x + width, lost_pct, width, label="Lost %")
-
-    plt.bar_label(bars_total, padding=3)
-    plt.bar_label(bars_lost, padding=3)
-    plt.bar_label(bars_lost_pct, padding=3)
-
-    plt.xticks(x, labels)
-    plt.xlabel("Test cases (Bitrate / Blksize)")
-    plt.ylabel("Values")
-    plt.title("Packet loss per test")
-    plt.legend()
-
-    plt.tight_layout()
-    save_as = "barchart-results.png"
-    save_dir = Path(saveDir)
-    save_dir.mkdir(parents=True, exist_ok=True)
-    save_path = save_dir / save_as
-    plt.savefig(save_path)
-    print(f" - Bar chart saved at {save_path}")
-    if show:
-        plt.show()
     
 def _build_groups(metrics_list, multirun, keys):
     groups = defaultdict(list)
@@ -334,15 +255,15 @@ def _build_groups(metrics_list, multirun, keys):
             row = {k: e[k] for k in keys}
 
         table.append({
-            "blksize":                 blksize,
-            "target_bitrate":          bitrate / 1000,
-            "avg_throughput_sender":   row["bitrate_kbps"],
+            "blksize": blksize,
+            "target_bitrate": bitrate / 1000,
+            "avg_throughput_sender": row["bitrate_kbps"],
             "avg_throughput_receiver": row["goodput"],
-            "avg_jitter_ms":           row.get("jitter_ms", 0.0),
-            "avg_loss_percent":        row.get("lost_percent", 0.0),
-            "pps":                     row.get("pps", 0.0),
-            "total_p":                 row.get("total_packets", 0),
-            "mean_rtt_ms":             row.get("mean_rtt_us", 0) / 1000,
+            "avg_jitter_ms": row.get("jitter_ms", 0.0),
+            "avg_loss_percent": row.get("lost_percent", 0.0),
+            "pps": row.get("pps", 0.0),
+            "total_p": row.get("total_packets", 0),
+            "mean_rtt_ms": row.get("mean_rtt_us", 0) / 1000,
         })
 
     table.sort(key=lambda x: (x["target_bitrate"], x["blksize"]))
@@ -441,8 +362,7 @@ if __name__ == "__main__":
             metrics["pps"] = pps_mean
             metricsAll.append(metrics)
             (_, jitters), (ltimes, lost_pct), (btimes, recv_bitrates) = extract_from_server_output(data, is_tcp)
-            # previous logic removed the last 2 elements of jitter/loss/recv lists; keep that behavior
-            # but ensure all series have the same length before plotting to avoid matplotlib shape errors
+   
             jit_trim = jitters[:-2] if len(jitters) > 2 else jitters[:]
             lost_trim = lost_pct[:-2] if len(lost_pct) > 2 else lost_pct[:]
             recv_trim = recv_bitrates[:-2] if len(recv_bitrates) > 2 else recv_bitrates[:]
@@ -452,9 +372,9 @@ if __name__ == "__main__":
                 if n == 0:
                     print("Skipping TCP plot cycle due to missing data after alignment")
                 else:
-                    times_plot   = times[:n]
+                    times_plot= times[:n]
                     bitrates_plot = bitrates[:n]
-                    pps_plot     = ppsd[:n]
+                    pps_plot = ppsd[:n]
                     # recv from server output if available, otherwise mirror sender
                     recv_plot    = recv_trim[:n] if len(recv_trim) >= n else bitrates_plot
 
@@ -467,12 +387,12 @@ if __name__ == "__main__":
                 if n == 0:
                     print("Skipping plot cycle due to missing data after alignment")
                 else:
-                    times_plot    = times[:n]
+                    times_plot = times[:n]
                     bitrates_plot = bitrates[:n]
-                    jitters_plot  = jit_trim[:n]
-                    lost_plot     = lost_trim[:n]
-                    recv_plot     = recv_trim[:n]
-                    pps_plot      = ppsd[:n]
+                    jitters_plot = jit_trim[:n]
+                    lost_plot = lost_trim[:n]
+                    recv_plot = recv_trim[:n]
+                    pps_plot = ppsd[:n]
 
                     do_plots(times_plot, bitrates_plot, jitters_plot, lost_plot, recv_plot,
                             metrics["bits_per_second"], metrics["recv_bits_per_second"],
@@ -483,6 +403,4 @@ if __name__ == "__main__":
                     print(f"Final jitter estimate: {jitters[-1]}")
             
             
-    print("\n[*] Generating bar charts...")
-    #do_barcharts(metricsAll, args.pltshow)
     do_table(metricsAll, args.m)
