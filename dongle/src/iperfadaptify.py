@@ -167,7 +167,9 @@ def do_plots(times, bitrates, jitters, lost_percents, recv_bitrates, bavg, ravg,
 
     fig, axs = plt.subplots(4,1,figsize=(12, 10),sharex=True)   
     fig.suptitle(f"Network performance\nPayload size: {size} B | Target bitrate: {tb} kbps",fontsize=16)
-
+    for ax in axs:
+        ax.tick_params(labelbottom=True)
+        ax.set_xlabel("Time (s)")
     axs[0].plot(times, bitrates,label=f"Sender ({bavg/1000:.2f} kbps avg)")
     axs[0].plot(times, recv_bitrates, "--",label=f"Receiver ({ravg/1000:.2f} kbps avg)")
     axs[0].set_ylabel("kbps")
@@ -188,7 +190,7 @@ def do_plots(times, bitrates, jitters, lost_percents, recv_bitrates, bavg, ravg,
     axs[3].plot(times, ppsd)
     axs[3].set_ylabel("PPS")
     axs[3].set_title("Packets per second (PPS)")
-    axs[3].set_xlabel("Time (s)")
+    #axs[3].set_xlabel("Time (s)")
     axs[3].grid(alpha=0.3)
 
     plt.tight_layout(rect=[0, 0, 1, 0.95])
@@ -206,7 +208,10 @@ def do_plots(times, bitrates, jitters, lost_percents, recv_bitrates, bavg, ravg,
     if show:
         plt.show()
 def do_plots_tcp(times, bitrates, recv_bitrates, bavg, ravg, size, tb, ppsd, stamp=None, show=False):
-    fig, axs = plt.subplots(2,1,figsize=(12, 10),sharex=True)   
+    fig, axs = plt.subplots(2,1,figsize=(12, 10),sharex=True)
+    for ax in axs:
+        ax.tick_params(labelbottom=True)
+        ax.set_xlabel("Time (s)")
     fig.suptitle(f"Network performance TCP\nPayload size: {size} B | Target bitrate: {tb} kbps",fontsize=16)
     axs[0].plot(times, bitrates,label=f"Sender ({bavg/1000:.2f} kbps avg)")
     axs[0].plot(times, recv_bitrates, "--",label=f"Receiver ({ravg/1000:.2f} kbps avg)")
@@ -218,7 +223,7 @@ def do_plots_tcp(times, bitrates, recv_bitrates, bavg, ravg, size, tb, ppsd, sta
     axs[1].plot(times, ppsd)
     axs[1].set_ylabel("PPS")
     axs[1].set_title("Packets per second (PPS)")
-    axs[1].set_xlabel("Time (s)")
+   # axs[1].set_xlabel("Time (s)")
     axs[1].grid(alpha=0.3)
 
     plt.tight_layout(rect=[0, 0, 1, 0.95])
@@ -321,7 +326,129 @@ def do_table(metrics_list, multirun: bool):
         _print_tcp_table(tcp_metrics, multirun)
 
 
+def do_efficiency_plot(metrics_list, multirun, protocol="UDP"):
+    keys = UDP_KEYS if protocol == "UDP" else TCP_KEYS
+    table = _build_groups(metrics_list, multirun, keys)
 
+    if not table:
+        print(f"No {protocol} data for efficiency plot.")
+        return
+
+    by_bitrate = defaultdict(list)
+    for row in table:
+        by_bitrate[row["target_bitrate"]].append(row)
+
+    for bitrate in by_bitrate:
+        by_bitrate[bitrate].sort(key=lambda x: x["blksize"])
+
+    bitrates_sorted = sorted(by_bitrate.keys())
+    all_sizes = sorted({r["blksize"] for r in table})
+
+    x_positions = list(range(len(all_sizes)))
+    x_labels = [f"{s} B" for s in all_sizes]
+
+    linestyles = ["-", "--", "-.", ":", (0, (3, 1, 1, 1)), (0, (5, 2))]
+    cmap = plt.cm.get_cmap("tab10", len(bitrates_sorted))
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    fig.suptitle(f"{protocol} Throughput efficiency\n"
+                 f"(Receiver throughput / Sender throughput)", fontsize=14)
+
+    for i, tb in enumerate(bitrates_sorted):
+        rows = by_bitrate[tb]
+        xs = [all_sizes.index(r["blksize"]) for r in rows]
+        ys = [
+            (r["avg_throughput_receiver"] / r["avg_throughput_sender"]) * 100
+            if r["avg_throughput_sender"] > 0 else 0.0
+            for r in rows
+        ]
+        ax.plot(xs, ys,
+                marker="o",
+                linestyle=linestyles[i % len(linestyles)],
+                label=f"{tb:.0f} kbps",
+                color=cmap(i),
+                linewidth=1.8)
+
+    ax.set_xticks(x_positions)
+    ax.set_xticklabels(x_labels)
+    ax.set_xlabel("Payload size (bytes)")
+    ax.set_ylabel("Efficiency (%)")
+    ax.set_ylim(0, 110)
+    ax.axhline(100, color="grey", linestyle="--", linewidth=0.8, label="100% (ideal)")
+    ax.legend(title="Target bitrate", bbox_to_anchor=(1.01, 1), loc="upper left")
+    ax.grid(alpha=0.3)
+
+    plt.tight_layout()
+
+    save_dir = Path(saveDir)
+    save_dir.mkdir(parents=True, exist_ok=True)
+    save_path = save_dir / f"efficiency-{protocol.lower()}.png"
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    print(f" - Efficiency plot saved at {save_path}")
+
+    if args.pltshow:
+        plt.show()
+    plt.close()
+def do_jitter_plot(metrics_list, multirun, protocol="UDP"):
+    if protocol != "UDP":
+        print("Jitter plot only available for UDP.")
+        return
+
+    table = _build_groups(metrics_list, multirun, UDP_KEYS)
+
+    if not table:
+        print("No UDP data for jitter plot.")
+        return
+
+    by_bitrate = defaultdict(list)
+    for row in table:
+        by_bitrate[row["target_bitrate"]].append(row)
+
+    for bitrate in by_bitrate:
+        by_bitrate[bitrate].sort(key=lambda x: x["blksize"])
+
+    bitrates_sorted = sorted(by_bitrate.keys())
+    all_sizes = sorted({r["blksize"] for r in table})
+
+    x_positions = list(range(len(all_sizes)))
+    x_labels = [f"{s} B" for s in all_sizes]
+
+    linestyles = ["-", "--", "-.", ":", (0, (3, 1, 1, 1)), (0, (5, 2))]
+    cmap = plt.cm.get_cmap("tab10", len(bitrates_sorted))
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    fig.suptitle("UDP Jitter\n(Average jitter per payload size & target bitrate)", fontsize=14)
+
+    for i, tb in enumerate(bitrates_sorted):
+        rows = by_bitrate[tb]
+        xs = [all_sizes.index(r["blksize"]) for r in rows]
+        ys = [r["avg_jitter_ms"] for r in rows]
+        ax.plot(xs, ys,
+                marker="o",
+                linestyle=linestyles[i % len(linestyles)],
+                label=f"{tb:.0f} kbps",
+                color=cmap(i),
+                linewidth=1.8)
+
+    ax.set_xticks(x_positions)
+    ax.set_xticklabels(x_labels)
+    ax.set_xlabel("Payload size (bytes)")
+    ax.set_ylabel("Jitter (ms)")
+    ax.set_ylim(bottom=0)
+    ax.legend(title="Target bitrate", bbox_to_anchor=(1.01, 1), loc="upper left")
+    ax.grid(alpha=0.3)
+
+    plt.tight_layout()
+
+    save_dir = Path(saveDir)
+    save_dir.mkdir(parents=True, exist_ok=True)
+    save_path = save_dir / "jitter-udp.png"
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    print(f" - Jitter plot saved at {save_path}")
+
+    if args.pltshow:
+        plt.show()
+    plt.close()
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="iperf Analyzer")
     parser.add_argument(
@@ -404,3 +531,10 @@ if __name__ == "__main__":
             
             
     do_table(metricsAll, args.m)
+    udp_metrics = [m for m in metricsAll if m["protocol"] == "UDP"]
+    tcp_metrics = [m for m in metricsAll if m["protocol"] == "TCP"]
+
+    if udp_metrics:
+        do_efficiency_plot(udp_metrics, args.m, protocol="UDP")
+    if tcp_metrics:
+        do_efficiency_plot(tcp_metrics, args.m, protocol="TCP")
