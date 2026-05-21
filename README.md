@@ -129,3 +129,29 @@ sudo tcpdump -i lowpan0 'icmp or icmp6' -vvv -w lowpan.pcap &
 sudo tcpdump -i nat64   'icmp or icmp6' -vvv -w nat64.pcap &
 sudo tcpdump -i wlan0   'icmp or icmp6' -vvv -w wlan.pcap &
 ```
+## Multi-hop test setup
+
+RPI04 (coordinator/relay)
+```bash
+sudo ./setup_lowpan.sh
+sudo sysctl -w net.ipv6.conf.all.forwarding=1
+sudo sysctl -w net.ipv6.conf.all.accept_redirects=0
+sudo ip6tables -A OUTPUT -p ipv6-icmp --icmpv6-type redirect -j DROP
+```
+RPI02 (iperf server/receiver)
+```bash
+sudo ./setup_lowpan.sh
+sudo sysctl -w net.ipv6.conf.all.accept_redirects=0
+sudo ip6tables -A INPUT -p ipv6-icmp --icmpv6-type redirect -j DROP
+sudo ip -6 route add fd00::4/128 dev lowpan0
+sudo ip -6 route add fd00::8/128 via fd00::4 dev lowpan0
+```
+RPI08 (iperf client/sender)
+```bash
+sudo ./setup_lowpan.sh
+sudo sysctl -w net.ipv6.conf.all.accept_redirects=0
+sudo ip6tables -A INPUT -p ipv6-icmp --icmpv6-type redirect -j DROP
+sudo ip -6 route add fd00::4/128 dev lowpan0
+sudo ip -6 route add fd00::2/128 via fd00::4 dev lowpan0
+sudo ./set_topology_mode.sh multi
+```
