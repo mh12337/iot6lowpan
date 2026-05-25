@@ -130,7 +130,7 @@ sudo tcpdump -i nat64   'icmp or icmp6' -vvv -w nat64.pcap &
 sudo tcpdump -i wlan0   'icmp or icmp6' -vvv -w wlan.pcap &
 ```
 ## Multi-hop test setup
-
+Changing firewall settings is done to avoid relay node responding with ICMP redirects instead of forwarding <br>
 RPI04 (coordinator/relay)
 ```bash
 sudo ./setup_lowpan.sh
@@ -155,3 +155,12 @@ sudo ip -6 route add fd00::4/128 dev lowpan0
 sudo ip -6 route add fd00::2/128 via fd00::4 dev lowpan0
 sudo ./set_topology_mode.sh multi
 ```
+<br>
+Indication of 2-hopping:
+<br>
+<img width="613" height="207" alt="billede" src="https://github.com/user-attachments/assets/ce2f60df-ade3-43ba-877f-db4bfbbd25b3" />
+<br>
+Relay node tcmpdump:
+<br>
+<img width="1455" height="693" alt="billede" src="https://github.com/user-attachments/assets/f208f330-cc6e-4b5a-b457-fc89f2fbd52c" />
+
