@@ -24,7 +24,7 @@ dtparam=spi=on
 dtoverlay=at86rf233-fixed,speed=500000
 ```
 ### nRF52840 dongle setup
-The nRF52840 dongle is setup with firmware from [nodicsemi](https://github.com/nordicsemi/nRF-Sniffer-for-802.15.4/tree/master) (specifically [nrf802154_sniffer_nrf52840dongle.hex](https://github.com/mh12337/iot6lowpan/blob/main/dongle/nrf802154_sniffer_nrf52840dongle.hex)). We also use the [python wrapper](https://github.com/mh12337/iot6lowpan/blob/main/dongle/src/nrf802154_sniffer.py) uses this wrapper and simply takes the COM port used by the dongle and the radio channel to sniff, as console arguments and specifies the file name where the results should be written to.
+The nRF52840 dongle is setup with firmware from [nodicsemi](https://github.com/nordicsemi/nRF-Sniffer-for-802.15.4/tree/master) (specifically [nrf802154_sniffer_nrf52840dongle.hex](https://github.com/mh12337/iot6lowpan/blob/main/dongle/nrf802154_sniffer_nrf52840dongle.hex)). We also use the [python wrapper](https://github.com/mh12337/iot6lowpan/blob/main/dongle/src/nrf802154_sniffer.py) . [Our python script](https://github.com/mh12337/iot6lowpan/blob/main/dongle/src/sniffa.py) simply uses this wrapper and simply takes the COM port used by the dongle and the radio channel to sniff, as console arguments and specifies the file name where the results should be written to.
 ### 6LowPAN setup
 Use [setup_lowpan_node.sh](https://github.com/mh12337/iot6lowpan/blob/main/rpi/lowpan/setup_lowpan_node.sh) on node and [setup_lowpan_coordinator.sh](https://github.com/mh12337/iot6lowpan/blob/main/rpi/lowpan/setup_lowpan_coordinator.sh) on coordinator <br> 
 [iwpan-tools v0.10](https://github.com/linux-wpan/wpan-tools/releases) is needed to configure from user space <br>
