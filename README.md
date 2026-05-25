@@ -129,6 +129,7 @@ sudo tcpdump -i lowpan0 'icmp or icmp6' -vvv -w lowpan.pcap &
 sudo tcpdump -i nat64   'icmp or icmp6' -vvv -w nat64.pcap &
 sudo tcpdump -i wlan0   'icmp or icmp6' -vvv -w wlan.pcap &
 ```
+# Test setup
 ## Multi-hop test setup
 Changing firewall settings is done to avoid relay node responding with ICMP redirects instead of forwarding <br>
 RPI04 (coordinator/relay)
