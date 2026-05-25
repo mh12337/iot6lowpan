@@ -166,7 +166,7 @@ def do_plots(times, bitrates, jitters, lost_percents, recv_bitrates, bavg, ravg,
         return
 
     fig, axs = plt.subplots(4,1,figsize=(12, 10),sharex=True)   
-    fig.suptitle(f"Network performance\nPayload size: {size} B | Target bitrate: {tb} kbps",fontsize=16)
+    fig.suptitle(f"Network performance\nPayload size: {size} B | Target bitrate: {tb/1000} kbps",fontsize=16)
     for ax in axs:
         ax.tick_params(labelbottom=True)
         ax.set_xlabel("Time (s)")
@@ -208,23 +208,23 @@ def do_plots(times, bitrates, jitters, lost_percents, recv_bitrates, bavg, ravg,
     if show:
         plt.show()
 def do_plots_tcp(times, bitrates, recv_bitrates, bavg, ravg, size, tb, ppsd, stamp=None, show=False):
-    fig, axs = plt.subplots(2,1,figsize=(12, 10),sharex=True)
-    for ax in axs:
-        ax.tick_params(labelbottom=True)
-        ax.set_xlabel("Time (s)")
-    fig.suptitle(f"Network performance TCP\nPayload size: {size} B | Target bitrate: {tb} kbps",fontsize=16)
-    axs[0].plot(times, bitrates,label=f"Sender ({bavg/1000:.2f} kbps avg)")
-    axs[0].plot(times, recv_bitrates, "--",label=f"Receiver ({ravg/1000:.2f} kbps avg)")
-    axs[0].set_ylabel("kbps")
-    axs[0].set_title("Throughput")
-    axs[0].legend()
-    axs[0].grid(alpha=0.3)
+    fig, axs = plt.subplots(1,1,figsize=(12, 10),sharex=True)
+    # for ax in axs:
+    #     ax.tick_params(labelbottom=True)
+    #     ax.set_xlabel("Time (s)")
+    fig.suptitle(f"Network performance TCP\nPayload size: {size} B | Target bitrate: {tb/1000} kbps",fontsize=16)
+    axs.plot(times, bitrates,label=f"Sender ({bavg/1000:.2f} kbps avg)")
+    axs.plot(times, recv_bitrates, "--",label=f"Receiver ({ravg/1000:.2f} kbps avg)")
+    axs.set_ylabel("kbps")
+    axs.set_title("Throughput")
+    axs.legend()
+    axs.grid(alpha=0.3)
     
-    axs[1].plot(times, ppsd)
-    axs[1].set_ylabel("PPS")
-    axs[1].set_title("Packets per second (PPS)")
+ #   axs[1].plot(times, ppsd)
+  #  axs[1].set_ylabel("PPS")
+   # axs[1].set_title("Packets per second (PPS)")
    # axs[1].set_xlabel("Time (s)")
-    axs[1].grid(alpha=0.3)
+    #axs[1].grid(alpha=0.3)
 
     plt.tight_layout(rect=[0, 0, 1, 0.95])
 
