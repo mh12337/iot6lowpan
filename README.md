@@ -164,3 +164,28 @@ Relay node tcmpdump:
 <br>
 <img width="1455" height="693" alt="billede" src="https://github.com/user-attachments/assets/f208f330-cc6e-4b5a-b457-fc89f2fbd52c" />
 
+## Run the script to perform iperf metrics
+On server node
+```bash
+iperf3 -s -p 5123
+```
+On client node, use the [iperf metrics script](https://github.com/mh12337/iot6lowpan/blob/main/rpi/test_automation/get_iperf_metrics.py) by running:
+```bash
+python3 get_iperf_metrics.py --tcp
+```
+tcp is a flag to enable TCP measurements
+<br>
+  
+## Run the analysis script 
+First retrieve the data from the RPI:
+```bash
+scp -r rpi08@192.168.0.104:~/results21
+```
+Create a python environment, install requirements and run the [analysis script](https://github.com/mh12337/iot6lowpan/blob/main/rpi/test_automation/get_iperf_metrics.py)
+```bash
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+python .\iperfadaptify.py .\results20-multihop\
+```
+
