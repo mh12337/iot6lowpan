@@ -154,7 +154,6 @@ sudo sysctl -w net.ipv6.conf.all.accept_redirects=0
 sudo ip6tables -A INPUT -p ipv6-icmp --icmpv6-type redirect -j DROP
 sudo ip -6 route add fd00::4/128 dev lowpan0
 sudo ip -6 route add fd00::2/128 via fd00::4 dev lowpan0
-sudo ./set_topology_mode.sh multi
 ```
 <br>
 Indication of 2-hopping:
@@ -172,7 +171,7 @@ iperf3 -s -p 5123
 ```
 On client node, use the [iperf metrics script](https://github.com/mh12337/iot6lowpan/blob/main/rpi/test_automation/get_iperf_metrics.py) by running:
 ```bash
-python3 get_iperf_metrics.py --tcp
+python3 get_iperf_metrics.py fd00::4 --tcp
 ```
 tcp is a flag to enable TCP measurements
 <br>
