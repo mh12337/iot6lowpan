@@ -1,5 +1,5 @@
 # 6LoWPAN networking project
-Group 1: Morten Husted, João Guedes Soares Vera, Pau Viñas Francisco, László Dávid Csávás	Csávás
+Group 1: Morten Husted, João Guedes Soares Vera, Pau Viñas Francisco, László Dávid Csávás
 
 ## Hardware setup
 ### RPI setup
@@ -24,9 +24,9 @@ dtparam=spi=on
 dtoverlay=at86rf233-fixed,speed=500000
 ```
 ### nRF52840 dongle setup
-The nRF52840 dongle is setup with firmware from [nodicsemi](https://github.com/nordicsemi/nRF-Sniffer-for-802.15.4/tree/master) (specifically [nrf802154_sniffer_nrf52840dongle.hex](https://github.com/mh12337/iot6lowpan/blob/main/dongle/nrf802154_sniffer_nrf52840dongle.hex)). We also use the [python wrapper](https://github.com/nordicsemi/nRF-Sniffer-for-802.15.4/blob/master/nrf802154_sniffer/nrf802154_sniffer.py). Our [sniffa.py](https://github.com/mh12337/iot6lowpan/blob/main/dongle/sniffa.py) uses this wrapper and simply takes the COM port used by the dongle and the radio channel to sniff, as console arguments and specifies the file name where the results should be written to.
+The nRF52840 dongle is setup with firmware from [nodicsemi](https://github.com/nordicsemi/nRF-Sniffer-for-802.15.4/tree/master) (specifically [nrf802154_sniffer_nrf52840dongle.hex](https://github.com/mh12337/iot6lowpan/blob/main/dongle/nrf802154_sniffer_nrf52840dongle.hex)). We also use the [python wrapper](https://github.com/mh12337/iot6lowpan/blob/main/dongle/src/nrf802154_sniffer.py) uses this wrapper and simply takes the COM port used by the dongle and the radio channel to sniff, as console arguments and specifies the file name where the results should be written to.
 ### 6LowPAN setup
-Use [setup_lowpan_node.sh](https://github.com/mh12337/iot6lowpan/blob/main/lowpan/setup_lowpan_node.sh) on node and [setup_lowpan_coordinator.sh](https://github.com/mh12337/iot6lowpan/blob/main/lowpan/setup_lowpan_coordinator.sh) on coordinator <br> 
+Use [setup_lowpan_node.sh](https://github.com/mh12337/iot6lowpan/blob/main/rpi/lowpan/setup_lowpan_node.sh) on node and [setup_lowpan_coordinator.sh](https://github.com/mh12337/iot6lowpan/blob/main/dongle/src/nrf802154_sniffer.py) on coordinator <br> 
 [iwpan-tools v0.10](https://github.com/linux-wpan/wpan-tools/releases) is needed to configure from user space <br>
 Make the script executable and enable it to run on boot
 ```bash
@@ -78,10 +78,10 @@ mkdir -p /var/db/tayga
 ```
 Dynamic mapping is the way in which IPv6 adresses in our network will be mapped to IPv4 adressess, that devices from outside our network will use to communicate back to devices in our system. This translation is done as necessary, when a device from our network sends a message to an IPv4 destination, tayga will assign it an IPv4 adress taken from a dynamic pool. This dynamic pool specifies a range of ip adressess that can be used for this mapping. This is configured later.
 
-The next step is to create a configuration file for tayga, a very simple one was created, that you can see [here](https://github.com/mh12337/iot6lowpan/blob/main/tayga/tayga.conf) and placed in /etc/ directory
+The next step is to create a configuration file for tayga, a very simple one was created, that you can see [here](https://github.com/mh12337/iot6lowpan/blob/main/rpi/tayga/tayga.conf) and placed in /etc/ directory
 For more information on each of the fields, refer to [this](https://github.com/apalrd/tayga/blob/main/tayga.conf.example) example config.
 
-We now need to change the routing setup on the system to send IPv4 and IPv6 packets to tayga. This is done via a list of commands that we have place in [this](https://github.com/mh12337/iot6lowpan/blob/main/tayga/tayga_setup.sh) shell script. And comprises of creating a TUN interface for tayga and setting up the ip adressess and routes for that interface, routing our IPv6 prefix and IPv4 dynamic pool adressess to it. We also need to create a masquerade for the dynamic pool adressess, since this pool only contains private adressess, this will make it so that outgoing packages are sent under the gateway's public ip address. IPv4 and IPv6 forwarding also needs to be enabled. The script fishished by running Tayga, everything should be in order after this.
+We now need to change the routing setup on the system to send IPv4 and IPv6 packets to tayga. This is done via a list of commands that we have place in [this](https://github.com/mh12337/iot6lowpan/blob/main/rpi/tayga/tayga_setup.sh) shell script. And comprises of creating a TUN interface for tayga and setting up the ip adressess and routes for that interface, routing our IPv6 prefix and IPv4 dynamic pool adressess to it. We also need to create a masquerade for the dynamic pool adressess, since this pool only contains private adressess, this will make it so that outgoing packages are sent under the gateway's public ip address. IPv4 and IPv6 forwarding also needs to be enabled. The script fishished by running Tayga, everything should be in order after this.
 
 To make the NAT64 Interface plug and play we added a system services that runs the tayga setup script as a daemon on startup, after the lowpan service:
 ```bash
